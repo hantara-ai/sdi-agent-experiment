@@ -21,11 +21,6 @@ jobs:
         run: |
           echo "content<<EOF" >> $GITHUB_OUTPUT
           cat << 'SDI' >> $GITHUB_OUTPUT
-Ceci est mon texte SDI intégré directement
-dans le workflow YAML.
-Tu peux écrire autant de lignes que tu veux.
-Aucune limite.
-Aucun risque d'erreur EOF.
           SDI
           echo "EOF" >> $GITHUB_OUTPUT
 
