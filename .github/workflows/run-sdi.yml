@@ -15,21 +15,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Load SDI file
+      # ✅ SDI directement ici
+      - name: Load SDI text
         id: load_sdi
         run: |
           echo "content<<EOF" >> $GITHUB_OUTPUT
-          cat sdi.txt >> $GITHUB_OUTPUT
+          cat << 'SDI' >> $GITHUB_OUTPUT
+Ceci est mon texte SDI intégré directement
+dans le workflow YAML.
+Tu peux écrire autant de lignes que tu veux.
+Aucune limite.
+Aucun risque d'erreur EOF.
+SDI
           echo "EOF" >> $GITHUB_OUTPUT
 
-      # ✅ Vérification du secret
+      # ✅ Vérification API key
       - name: Validate Anthropic API Key
         env:
           KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          echo "🔍 Checking key format..."
           if [[ -z "$KEY" ]]; then
-            echo "❌ ERROR: ANTHROPIC_API_KEY is empty!"
+            echo "❌ ERROR: ANTHROPIC_API_KEY missing"
             exit 1
           fi
 
@@ -38,13 +44,10 @@ jobs:
             exit 1
           fi
 
-          if [[ "$KEY" != sk-ant-* ]]; then
-            echo "⚠️ WARNING: Key does not start with sk-ant- (Anthropic format)"
-          fi
+          echo "✅ API key looks valid."
 
-          echo "✅ Key format looks good."
-
-      - name: Run Claude API
+      # ✅ Appel Claude
+      - name: Call Claude API
         id: claude
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -52,8 +55,7 @@ jobs:
           python << 'EOF'
           import os, json, requests, sys
 
-          # ✅ Nettoyage de sécurité
-          API_KEY = os.environ["ANTHROPIC_API_KEY"].strip().replace("\n", "").replace("\r", "")
+          API_KEY = os.environ["ANTHROPIC_API_KEY"].strip()
 
           url = "https://api.anthropic.com/v1/messages"
           headers = {
@@ -72,43 +74,36 @@ jobs:
               ]
           }
 
-          try:
-              response = requests.post(url, headers=headers, json=payload)
-          except Exception as e:
-              print("❌ Request error:", e)
-              sys.exit(1)
-
+          response = requests.post(url, headers=headers, json=payload)
           if response.status_code != 200:
-              print("❌ API returned an error:", response.status_code, response.text)
+              print("❌ Claude API error:", response.status_code, response.text)
               sys.exit(1)
 
           data = response.json()
-          full_output = data["content"][0]["text"]
+          output = data["content"][0]["text"]
 
-          # ✅ Extraction CSV
-          csv_start = full_output.find("```csv")
-          csv_end = full_output.find("```", csv_start + 5)
-          csv_content = full_output[csv_start + 6:csv_end].strip() if csv_start != -1 else ""
+          # Extraction CSV
+          csv_start = output.find("```csv")
+          csv_end = output.find("```", csv_start + 5)
+          csv_content = output[csv_start + 6:csv_end].strip() if csv_start != -1 else ""
 
-          # ✅ Extraction rapport
-          report_start = full_output.find("```", csv_end + 3)
-          report_end = full_output.find("```", report_start + 3)
-          report_content = full_output[report_start + 3:report_end].strip() if report_start != -1 else ""
+          # Extraction rapport
+          report_start = output.find("```", csv_end + 3)
+          report_end = output.find("```", report_start + 3)
+          report_content = output[report_start + 3:report_end].strip() if report_start != -1 else ""
 
-          # ✅ Export dans GITHUB_OUTPUT
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"csv<<EOF\n{csv_content}\nEOF\n")
               f.write(f"report<<EOF\n{report_content}\nEOF\n")
 
-          print("✅ Claude API call successful.")
+          print("✅ Claude call OK.")
           EOF
 
+      # Output files
       - name: Save CSV output
         run: |
           echo "${{ steps.claude.outputs.csv }}" > output.csv
-          echo "✅ CSV saved to output.csv"
 
-      - name: Save report output
+      - name: Save Report output
         run: |
           echo "${{ steps.claude.outputs.report }}" > report.txt
-          echo "✅ Report saved to report.txt"
