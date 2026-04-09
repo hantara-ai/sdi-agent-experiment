@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ SDI directement ici
+      # ✅ SDI directement ici (indentation correcte)
       - name: Load SDI text
         id: load_sdi
         run: |
@@ -29,7 +29,7 @@ Aucun risque d'erreur EOF.
 SDI
           echo "EOF" >> $GITHUB_OUTPUT
 
-      # ✅ Vérification API key
+      # ✅ Vérification API key Anthropic
       - name: Validate Anthropic API Key
         env:
           KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -46,7 +46,7 @@ SDI
 
           echo "✅ API key looks valid."
 
-      # ✅ Appel Claude
+      # ✅ Appel Claude API
       - name: Call Claude API
         id: claude
         env:
@@ -92,6 +92,7 @@ SDI
           report_end = output.find("```", report_start + 3)
           report_content = output[report_start + 3:report_end].strip() if report_start != -1 else ""
 
+          # Export dans GITHUB_OUTPUT
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"csv<<EOF\n{csv_content}\nEOF\n")
               f.write(f"report<<EOF\n{report_content}\nEOF\n")
@@ -99,7 +100,7 @@ SDI
           print("✅ Claude call OK.")
           EOF
 
-      # Output files
+      # ✅ Sauvegarde des fichiers générés
       - name: Save CSV output
         run: |
           echo "${{ steps.claude.outputs.csv }}" > output.csv
