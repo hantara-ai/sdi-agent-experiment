@@ -26,7 +26,7 @@ dans le workflow YAML.
 Tu peux écrire autant de lignes que tu veux.
 Aucune limite.
 Aucun risque d'erreur EOF.
-SDI
+          SDI
           echo "EOF" >> $GITHUB_OUTPUT
 
       # ✅ Vérification API key Anthropic
