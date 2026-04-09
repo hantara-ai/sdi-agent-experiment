@@ -1,0 +1,88 @@
+
+name: Run SDI Experiment (Claude API)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-sdi:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Load One-Shot SDI instructions
+        id: load_sdi
+        run: |
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          cat experiments/sdi_oneshot.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Call Claude API
+        id: claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python << 'EOF'
+          import os, json, requests
+
+          API_KEY = os.environ["ANTHROPIC_API_KEY"]
+
+          url = "https://api.anthropic.com/v1/messages"
+          headers = {
+              "x-api-key": API_KEY,
+              "anthropic-version": "2023-06-01",
+              "content-type": "application/json"
+          }
+
+          instructions = """${{ steps.load_sdi.outputs.content }}"""
+
+          payload = {
+              "model": "claude-3-5-sonnet-latest",
+              "max_tokens": 8000,
+              "messages": [
+                  {"role": "user", "content": instructions}
+              ]
+          }
+
+          response = requests.post(url, headers=headers, json=payload)
+          data = response.json()
+          output = data["content"][0]["text"]
+
+          # Extraction CSV
+          csv_start = output.find("```csv")
+          csv_end = output.find("```", csv_start + 5)
+          csv_content = output[csv_start + 6:csv_end].strip()
+
+          # Extraction rapport
+          report_start = output.find("```", csv_end + 3)
+          report_end = output.find("```", report_start + 3)
+          report_content = output[report_start + 3:report_end].strip()
+
+          os.makedirs("results", exist_ok=True)
+
+          with open("results/sdi_results.csv", "w") as f:
+              f.write(csv_content)
+
+          with open("results/rapport_sdi.md", "w") as f:
+              f.write(report_content)
+
+          print("✅ Fichiers générés : sdi_results.csv / rapport_sdi.md")
+          EOF
+
+      - name: Upload SDI Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDI-Results
+          path: results/
